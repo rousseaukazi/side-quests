@@ -8,6 +8,7 @@ final class FloatingPanel: NSPanel {
     private static let panelWidth: CGFloat = 720
     private static let panelHeight: CGFloat = 72
     private static let cornerRadius: CGFloat = 20
+    private static let positionKey = "com.rousseau.sidequests.panelPosition"
 
     // MARK: - Event monitors
 
@@ -23,7 +24,10 @@ final class FloatingPanel: NSPanel {
                 width: FloatingPanel.panelWidth,
                 height: FloatingPanel.panelHeight
             ),
-            styleMask: [.nonactivatingPanel, .fullSizeContentView, .borderless],
+            // NOTE: NO .fullSizeContentView — that flag causes NSHostingView to
+            // miscalculate its layout region with .borderless panels, producing
+            // a rectangular background artifact in the title-bar-height area.
+            styleMask: [.nonactivatingPanel, .borderless],
             backing: .buffered,
             defer: false
         )
@@ -35,59 +39,41 @@ final class FloatingPanel: NSPanel {
         hasShadow = true
         animationBehavior = .utilityWindow
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        isMovableByWindowBackground = false
+        // Allow dragging from anywhere on the panel background
+        isMovableByWindowBackground = true
         titlebarAppearsTransparent = true
         titleVisibility = .hidden
 
+        delegate = self
         setupContentView()
     }
 
     // MARK: - Content
 
     private func setupContentView() {
-        // Blur background
-        let blur = NSVisualEffectView()
-        blur.blendingMode = .behindWindow
-        blur.state = .active
-        blur.material = .underWindowBackground
-        blur.wantsLayer = true
-
-        // SwiftUI search bar hosted inside the blur view
         let searchView = SearchBarView(
             onSubmit: { [weak self] text in
                 self?.submit(text: text)
             }
         )
 
-        let host = NSHostingView(rootView: searchView.background(Color.clear))
-        host.translatesAutoresizingMaskIntoConstraints = false
+        // Wrap the SwiftUI view with a material background + hard clip shape.
+        // Using SwiftUI's .background + .clipShape instead of a separate
+        // NSVisualEffectView avoids the compositing layer mismatch that was
+        // causing square corners to overdraw the rounded blur view.
+        let rootView = searchView
+            .background(PanelMaterial())
+            .clipShape(RoundedRectangle(cornerRadius: FloatingPanel.cornerRadius, style: .continuous))
+
+        let host = NSHostingView(rootView: rootView)
         host.wantsLayer = true
         host.layer?.backgroundColor = NSColor.clear.cgColor
-        // Clip host to same rounded shape so it can't overdraw the blur view's corners
+        // Belt-and-suspenders: also clip at the CA level
         host.layer?.cornerRadius = FloatingPanel.cornerRadius
+        host.layer?.cornerCurve = .continuous
         host.layer?.masksToBounds = true
 
-        blur.addSubview(host)
-        NSLayoutConstraint.activate([
-            host.leadingAnchor.constraint(equalTo: blur.leadingAnchor),
-            host.trailingAnchor.constraint(equalTo: blur.trailingAnchor),
-            host.topAnchor.constraint(equalTo: blur.topAnchor),
-            host.bottomAnchor.constraint(equalTo: blur.bottomAnchor),
-        ])
-
-        contentView = blur
-
-        // Use a CAShapeLayer mask on the blur view — more reliable than
-        // cornerRadius+masksToBounds against NSHostingView overdraw on macOS 13+
-        let mask = CAShapeLayer()
-        let rect = CGRect(x: 0, y: 0,
-                          width: FloatingPanel.panelWidth,
-                          height: FloatingPanel.panelHeight)
-        mask.path = CGPath(roundedRect: rect,
-                           cornerWidth: FloatingPanel.cornerRadius,
-                           cornerHeight: FloatingPanel.cornerRadius,
-                           transform: nil)
-        blur.layer?.mask = mask
+        contentView = host
     }
 
     // MARK: - NSPanel overrides
@@ -98,19 +84,15 @@ final class FloatingPanel: NSPanel {
     // MARK: - Show / Hide
 
     func showPanel() {
-        centerOnActiveScreen()
+        positionPanel()
         makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
-
-        // Tell the SwiftUI view to clear its text and claim focus
         NotificationCenter.default.post(name: .sideQuestsPanelWillShow, object: nil)
-
         installEventMonitors()
     }
 
     func hidePanel() {
         removeEventMonitors()
-        // Slide up 8px + fade out, then dismiss
         NSAnimationContext.runAnimationGroup({ ctx in
             ctx.duration = 0.2
             ctx.timingFunction = CAMediaTimingFunction(name: .easeIn)
@@ -122,22 +104,51 @@ final class FloatingPanel: NSPanel {
             self?.orderOut(nil)
             self?.alphaValue = 1.0
         })
-        // With LSUIElement / .accessory policy, macOS automatically
-        // returns focus to the previously active application.
     }
 
     // MARK: - Positioning
 
-    private func centerOnActiveScreen() {
+    private func positionPanel() {
+        // Restore saved position if it's still on a live screen
+        if let saved = savedOrigin() {
+            let testRect = NSRect(
+                origin: saved,
+                size: NSSize(width: FloatingPanel.panelWidth, height: FloatingPanel.panelHeight)
+            )
+            if NSScreen.screens.contains(where: { $0.visibleFrame.intersects(testRect) }) {
+                setFrame(NSRect(origin: saved,
+                                size: NSSize(width: FloatingPanel.panelWidth,
+                                             height: FloatingPanel.panelHeight)),
+                         display: true)
+                return
+            }
+        }
+        // Default: center on main screen, ~40% from top (Spotlight position)
         let screen = NSScreen.main ?? NSScreen.screens[0]
         let sr = screen.visibleFrame
         let x = sr.midX - FloatingPanel.panelWidth / 2
-        // Place panel ~40% from the top (Spotlight-ish position)
         let y = sr.maxY - (sr.height * 0.42)
         setFrame(
-            NSRect(x: x, y: y, width: FloatingPanel.panelWidth, height: FloatingPanel.panelHeight),
+            NSRect(x: x, y: y,
+                   width: FloatingPanel.panelWidth,
+                   height: FloatingPanel.panelHeight),
             display: true
         )
+    }
+
+    // MARK: - Position persistence
+
+    private func savedOrigin() -> NSPoint? {
+        guard let dict = UserDefaults.standard.dictionary(forKey: Self.positionKey),
+              let x = dict["x"] as? Double,
+              let y = dict["y"] as? Double else { return nil }
+        return NSPoint(x: x, y: y)
+    }
+
+    private func savePosition() {
+        let o = frame.origin
+        UserDefaults.standard.set(["x": Double(o.x), "y": Double(o.y)],
+                                   forKey: Self.positionKey)
     }
 
     // MARK: - Submission
@@ -154,16 +165,13 @@ final class FloatingPanel: NSPanel {
     // MARK: - Event monitors
 
     private func installEventMonitors() {
-        // Local: intercept Escape before the text field sees it
         localEventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             if event.keyCode == 53 { // Escape
                 self?.hidePanel()
-                return nil          // consume event
+                return nil
             }
             return event
         }
-
-        // Global: clicking anywhere outside the panel dismisses it
         globalEventMonitor = NSEvent.addGlobalMonitorForEvents(
             matching: [.leftMouseDown, .rightMouseDown]
         ) { [weak self] _ in
@@ -175,6 +183,30 @@ final class FloatingPanel: NSPanel {
         if let m = localEventMonitor { NSEvent.removeMonitor(m); localEventMonitor = nil }
         if let m = globalEventMonitor { NSEvent.removeMonitor(m); globalEventMonitor = nil }
     }
+}
+
+// MARK: - NSWindowDelegate (position persistence)
+
+extension FloatingPanel: NSWindowDelegate {
+    func windowDidMove(_ notification: Notification) {
+        savePosition()
+    }
+}
+
+// MARK: - Material background (NSViewRepresentable)
+// Using a representable instead of a separate NSVisualEffectView wrapper
+// keeps the blur layer inside the SwiftUI compositing tree where clipShape
+// can mask it correctly.
+
+private struct PanelMaterial: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let v = NSVisualEffectView()
+        v.blendingMode = .behindWindow
+        v.state = .active
+        v.material = .underWindowBackground
+        return v
+    }
+    func updateNSView(_ nsView: NSVisualEffectView, context: Context) {}
 }
 
 // MARK: - Notification name
