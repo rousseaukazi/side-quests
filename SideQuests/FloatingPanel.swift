@@ -118,7 +118,7 @@ final class FloatingPanel: NSPanel {
         guard !trimmed.isEmpty else { return }
         hidePanel()
         Task {
-            await DiscordService.shared.post(message: trimmed)
+            await DiscordService.shared.post(message: trimmed)  // server prepends /sq
         }
     }
 

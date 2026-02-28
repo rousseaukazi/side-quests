@@ -39,8 +39,8 @@
 		<true/>
 	</dict>
 
-	<!-- Discord webhook URL injected at build time via the DISCORD_WEBHOOK_URL build setting -->
-	<key>DISCORD_WEBHOOK_URL</key>
-	<string>$(DISCORD_WEBHOOK_URL)</string>
+	<!-- Shared secret for sq-server, injected at build time -->
+	<key>SQ_SERVER_SECRET</key>
+	<string>$(SQ_SERVER_SECRET)</string>
 </dict>
 </plist>

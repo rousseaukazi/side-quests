@@ -1,33 +1,25 @@
 import Foundation
 
+/// Posts sidequest text to the sq-server, which fires a system event into Roux.
 actor DiscordService {
 
     static let shared = DiscordService()
-
     private init() {}
 
     func post(message: String) async {
-        let urlString = Config.webhookURL
-
-        guard urlString != Config.placeholderURL else {
-            print("[SideQuests] ⚠️  No webhook URL configured.")
-            print("[SideQuests]    Set DISCORD_WEBHOOK_URL in the build settings or Info.plist.")
-            return
-        }
-
-        guard let url = URL(string: urlString) else {
-            print("[SideQuests] ⚠️  Malformed webhook URL: \(urlString)")
+        guard let url = URL(string: Config.sqServerURL) else {
+            print("[SideQuests] ❌ Bad server URL: \(Config.sqServerURL)")
             return
         }
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.timeoutInterval = 10
 
-        // Discord webhook payload
-        let payload: [String: Any] = [
-            "content": message,
-            "username": "Side Quests"
+        let payload: [String: String] = [
+            "text": message,
+            "secret": Config.sqServerSecret
         ]
 
         do {
@@ -36,14 +28,12 @@ actor DiscordService {
 
             if let http = response as? HTTPURLResponse {
                 switch http.statusCode {
-                case 200, 204:
-                    print("[SideQuests] ✅ Posted: \(message)")
-                case 400...499:
-                    print("[SideQuests] ❌ Client error \(http.statusCode) — check webhook URL.")
-                case 500...599:
-                    print("[SideQuests] ❌ Discord server error \(http.statusCode).")
+                case 200:
+                    print("[SideQuests] ✅ Sent: /sq \(message)")
+                case 401:
+                    print("[SideQuests] ❌ Unauthorized — check SQ_SERVER_SECRET.")
                 default:
-                    print("[SideQuests] ⚠️  Unexpected status \(http.statusCode).")
+                    print("[SideQuests] ⚠️  Status \(http.statusCode)")
                 }
             }
         } catch {
