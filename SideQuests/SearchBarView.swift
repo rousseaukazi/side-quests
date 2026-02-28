@@ -1,22 +1,28 @@
 import SwiftUI
 import AppKit
 
+private struct Particle: Identifiable {
+    let id = UUID()
+    let angle: Double    // degrees
+    let distance: CGFloat
+}
+
 struct SearchBarView: View {
 
     let onSubmit: (String) -> Void
 
     @State private var text: String = ""
     @FocusState private var isFocused: Bool
-    @State private var submitRotation: Double = 0
-    @State private var submitScale: CGFloat = 1.0
-    @State private var glowIntensity: CGFloat = 0
     @State private var isHoveringSubmit = false
+    @State private var isSubmitting = false
+    @State private var particles: [Particle] = []
+    @State private var particlesActive = false
 
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: "map.fill")
                 .font(.system(size: 18, weight: .medium))
-                .foregroundColor(text.isEmpty ? .secondary : .accentColor)
+                .foregroundColor((text.isEmpty && !isSubmitting) ? .secondary : .accentColor)
                 .padding(.leading, 18)
                 .animation(.easeInOut(duration: 0.15), value: text.isEmpty)
 
@@ -26,42 +32,55 @@ struct SearchBarView: View {
                 .foregroundColor(.primary)
                 .focused($isFocused)
                 .onSubmit(handleSubmit)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 6)
-                        .stroke(Color.accentColor.opacity(glowIntensity), lineWidth: 2)
-                )
 
-            if !text.isEmpty {
-                Button(action: handleSubmit) {
-                    Image(systemName: "arrow.up.circle.fill")
-                        .font(.system(size: 26))
-                        .foregroundColor(.accentColor)
-                        .rotationEffect(.degrees(submitRotation))
-                        .scaleEffect(submitScale)
-                        .scaleEffect(isHoveringSubmit ? 1.12 : 1.0)
-                }
-                .buttonStyle(.plain)
-                .padding(.trailing, 12)
-                .transition(.opacity.combined(with: .scale))
-                .onHover { hovering in
-                    withAnimation(.easeInOut(duration: 0.15)) {
-                        isHoveringSubmit = hovering
+            // Keep visible while submitting so particles have somewhere to live
+            if !text.isEmpty || isSubmitting {
+                ZStack {
+                    // Particle burst — 8 dots scatter outward then fade
+                    ForEach(particles) { p in
+                        Circle()
+                            .fill(Color.accentColor)
+                            .frame(width: 5, height: 5)
+                            .offset(
+                                x: particlesActive ? CGFloat(cos(p.angle * .pi / 180)) * p.distance : 0,
+                                y: particlesActive ? CGFloat(sin(p.angle * .pi / 180)) * p.distance : 0
+                            )
+                            .opacity(particlesActive ? 0 : 0.9)
+                            .animation(.easeOut(duration: 0.4), value: particlesActive)
+                    }
+
+                    // Arrow — fades out as particles burst
+                    Button(action: handleSubmit) {
+                        Image(systemName: "arrow.up.circle.fill")
+                            .font(.system(size: 26))
+                            .foregroundColor(.accentColor)
+                            .scaleEffect(isSubmitting ? 1.25 : (isHoveringSubmit ? 1.12 : 1.0))
+                            .opacity(isSubmitting ? 0 : 1)
+                            .animation(.easeOut(duration: 0.12), value: isSubmitting)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isSubmitting)
+                    .onHover { hovering in
+                        withAnimation(.easeInOut(duration: 0.15)) {
+                            isHoveringSubmit = hovering
+                        }
                     }
                 }
+                .padding(.trailing, 12)
+                .transition(.opacity.combined(with: .scale))
             }
         }
         .frame(height: 72)
-        .animation(.easeInOut(duration: 0.15), value: text.isEmpty)
-        // Each time the panel surfaces: clear the field and steal focus
+        .background(Color.clear)
+        .animation(.easeInOut(duration: 0.15), value: text.isEmpty && !isSubmitting)
         .onReceive(
             NotificationCenter.default.publisher(for: .sideQuestsPanelWillShow)
         ) { _ in
             text = ""
-            submitRotation = 0
-            submitScale = 1.0
-            glowIntensity = 0
+            particles = []
+            particlesActive = false
+            isSubmitting = false
             isHoveringSubmit = false
-            // Slight delay so makeKeyAndOrderFront has committed
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
                 isFocused = true
             }
@@ -70,32 +89,39 @@ struct SearchBarView: View {
 
     private func handleSubmit() {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
+        guard !trimmed.isEmpty, !isSubmitting else { return }
 
-        // Sound: System "Pop"
+        isSubmitting = true
+
+        // Sound fires immediately
         NSSound(named: "Pop")?.play()
 
-        // Glow pulse on text field (0.12s in, fade out)
-        withAnimation(.easeIn(duration: 0.06)) {
-            glowIntensity = 0.65
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
-            withAnimation(.easeOut(duration: 0.2)) {
-                glowIntensity = 0
-            }
+        // Spawn 8 particles evenly distributed + slight random radius variation
+        particles = (0..<8).map { i in
+            Particle(
+                angle: Double(i) * 45.0 + Double.random(in: -8...8),
+                distance: CGFloat.random(in: 18...30)
+            )
         }
 
-        // Arrow: spin 360° + scale up (0.15s)
-        withAnimation(.easeInOut(duration: 0.15)) {
-            submitRotation += 360
-            submitScale = 1.35
+        // Tiny delay so particles mount, then trigger animation
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.02) {
+            withAnimation { particlesActive = true }
         }
 
-        // Clear field immediately, delay actual submit to let animation breathe
+        // Clear text immediately (arrow stays visible via isSubmitting)
         let captured = trimmed
         text = ""
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+
+        // Let animation finish (0.4s), THEN dismiss
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.42) {
             onSubmit(captured)
+            // Reset state after panel has dismissed
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                isSubmitting = false
+                particles = []
+                particlesActive = false
+            }
         }
     }
 }

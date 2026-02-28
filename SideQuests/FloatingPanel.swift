@@ -7,7 +7,7 @@ final class FloatingPanel: NSPanel {
 
     private static let panelWidth: CGFloat = 720
     private static let panelHeight: CGFloat = 72
-    private static let cornerRadius: CGFloat = 16
+    private static let cornerRadius: CGFloat = 20
 
     // MARK: - Event monitors
 
@@ -36,6 +36,8 @@ final class FloatingPanel: NSPanel {
         animationBehavior = .utilityWindow
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         isMovableByWindowBackground = false
+        titlebarAppearsTransparent = true
+        titleVisibility = .hidden
 
         setupContentView()
     }
@@ -61,6 +63,9 @@ final class FloatingPanel: NSPanel {
 
         let host = NSHostingView(rootView: searchView)
         host.translatesAutoresizingMaskIntoConstraints = false
+        // Remove default opaque background that causes the glossy rectangle artifact
+        host.wantsLayer = true
+        host.layer?.backgroundColor = NSColor.clear.cgColor
         blur.addSubview(host)
         NSLayoutConstraint.activate([
             host.leadingAnchor.constraint(equalTo: blur.leadingAnchor),
