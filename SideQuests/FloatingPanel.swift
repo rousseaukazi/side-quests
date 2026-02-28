@@ -118,7 +118,7 @@ final class FloatingPanel: NSPanel {
         guard !trimmed.isEmpty else { return }
         hidePanel()
         Task {
-            await SideQuestService.shared.post(text: trimmed)
+            await DiscordService.shared.post(message: trimmed)
         }
     }
 

@@ -1,49 +1,37 @@
 import Foundation
 
+/// Posts sidequest text to the sq-server, which handles Discord channel creation.
 actor DiscordService {
 
     static let shared = DiscordService()
-
     private init() {}
 
+    private let endpoint = "http://3.145.73.180:4141/sq"
+    private let secret   = "roux-sq-secret"
+
     func post(message: String) async {
-        let urlString = Config.webhookURL
-
-        guard urlString != Config.placeholderURL else {
-            print("[SideQuests] ⚠️  No webhook URL configured.")
-            print("[SideQuests]    Set DISCORD_WEBHOOK_URL in the build settings or Info.plist.")
-            return
-        }
-
-        guard let url = URL(string: urlString) else {
-            print("[SideQuests] ⚠️  Malformed webhook URL: \(urlString)")
-            return
-        }
+        guard let url = URL(string: endpoint) else { return }
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.timeoutInterval = 10
 
-        // Discord webhook payload
-        let payload: [String: Any] = [
-            "content": message,
-            "username": "Side Quests"
-        ]
+        let payload: [String: String] = ["text": message, "secret": secret]
 
         do {
-            request.httpBody = try JSONSerialization.data(withJSONObject: payload)
-            let (_, response) = try await URLSession.shared.data(for: request)
+            request.httpBody = try JSONEncoder().encode(payload)
+            let (data, response) = try await URLSession.shared.data(for: request)
 
             if let http = response as? HTTPURLResponse {
                 switch http.statusCode {
-                case 200, 204:
-                    print("[SideQuests] ✅ Posted: \(message)")
-                case 400...499:
-                    print("[SideQuests] ❌ Client error \(http.statusCode) — check webhook URL.")
-                case 500...599:
-                    print("[SideQuests] ❌ Discord server error \(http.statusCode).")
+                case 200, 201:
+                    if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                       let channel = json["channel"] as? String {
+                        print("[SideQuests] ✅ Created: #\(channel)")
+                    }
                 default:
-                    print("[SideQuests] ⚠️  Unexpected status \(http.statusCode).")
+                    print("[SideQuests] ❌ Server error \(http.statusCode)")
                 }
             }
         } catch {
