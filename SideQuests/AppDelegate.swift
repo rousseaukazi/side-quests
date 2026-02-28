@@ -5,7 +5,7 @@ extension KeyboardShortcuts.Name {
     // Default: ⌘⇧Space
     static let togglePanel = Self(
         "togglePanel",
-        default: .init(.space, modifiers: [.command, .shift])
+        default: .init(.s, modifiers: [.command, .shift])
     )
 }
 
