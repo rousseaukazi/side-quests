@@ -5,9 +5,9 @@ final class FloatingPanel: NSPanel {
 
     // MARK: - Constants
 
-    private static let panelWidth: CGFloat = 680
-    private static let panelHeight: CGFloat = 64
-    private static let cornerRadius: CGFloat = 13
+    private static let panelWidth: CGFloat = 720
+    private static let panelHeight: CGFloat = 72
+    private static let cornerRadius: CGFloat = 16
 
     // MARK: - Event monitors
 
@@ -47,7 +47,7 @@ final class FloatingPanel: NSPanel {
         let blur = NSVisualEffectView()
         blur.blendingMode = .behindWindow
         blur.state = .active
-        blur.material = .hudWindow
+        blur.material = .underWindowBackground
         blur.wantsLayer = true
         blur.layer?.cornerRadius = FloatingPanel.cornerRadius
         blur.layer?.masksToBounds = true
@@ -92,7 +92,18 @@ final class FloatingPanel: NSPanel {
 
     func hidePanel() {
         removeEventMonitors()
-        orderOut(nil)
+        // Slide up 8px + fade out, then dismiss
+        NSAnimationContext.runAnimationGroup({ ctx in
+            ctx.duration = 0.2
+            ctx.timingFunction = CAMediaTimingFunction(name: .easeIn)
+            self.animator().alphaValue = 0
+            var frame = self.frame
+            frame.origin.y += 8
+            self.animator().setFrame(frame, display: true)
+        }, completionHandler: { [weak self] in
+            self?.orderOut(nil)
+            self?.alphaValue = 1.0
+        })
         // With LSUIElement / .accessory policy, macOS automatically
         // returns focus to the previously active application.
     }

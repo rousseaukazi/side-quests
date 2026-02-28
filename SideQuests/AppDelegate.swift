@@ -30,7 +30,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard let button = statusItem?.button else { return }
 
         button.image = NSImage(
-            systemSymbolName: "bolt.fill",
+            systemSymbolName: "map.fill",
             accessibilityDescription: "Side Quests"
         )
         button.sendAction(on: [.leftMouseUp, .rightMouseUp])
