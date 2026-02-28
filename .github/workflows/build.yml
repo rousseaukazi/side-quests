@@ -1,0 +1,42 @@
+name: Build & Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build app
+        run: |
+          xcodebuild \
+            -project SideQuests.xcodeproj \
+            -scheme SideQuests \
+            -configuration Release \
+            -derivedDataPath build \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Zip app
+        run: |
+          cd build/Build/Products/Release
+          zip -r SideQuests.zip SideQuests.app
+
+      - name: Delete existing latest release
+        run: gh release delete latest --yes 2>/dev/null || true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create release
+        run: |
+          gh release create latest \
+            --title "Side Quests — Latest" \
+            --notes "Download **SideQuests.zip**, unzip, right-click → Open (first time only to bypass Gatekeeper). Then ⌘⇧S from anywhere to launch." \
+            build/Build/Products/Release/SideQuests.zip
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
