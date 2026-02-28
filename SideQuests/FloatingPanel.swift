@@ -45,14 +45,12 @@ final class FloatingPanel: NSPanel {
     // MARK: - Content
 
     private func setupContentView() {
-        // Blur background that matches Spotlight styling
+        // Blur background
         let blur = NSVisualEffectView()
         blur.blendingMode = .behindWindow
         blur.state = .active
         blur.material = .underWindowBackground
         blur.wantsLayer = true
-        blur.layer?.cornerRadius = FloatingPanel.cornerRadius
-        blur.layer?.masksToBounds = true
 
         // SwiftUI search bar hosted inside the blur view
         let searchView = SearchBarView(
@@ -61,11 +59,14 @@ final class FloatingPanel: NSPanel {
             }
         )
 
-        let host = NSHostingView(rootView: searchView)
+        let host = NSHostingView(rootView: searchView.background(Color.clear))
         host.translatesAutoresizingMaskIntoConstraints = false
-        // Remove default opaque background that causes the glossy rectangle artifact
         host.wantsLayer = true
         host.layer?.backgroundColor = NSColor.clear.cgColor
+        // Clip host to same rounded shape so it can't overdraw the blur view's corners
+        host.layer?.cornerRadius = FloatingPanel.cornerRadius
+        host.layer?.masksToBounds = true
+
         blur.addSubview(host)
         NSLayoutConstraint.activate([
             host.leadingAnchor.constraint(equalTo: blur.leadingAnchor),
@@ -75,6 +76,18 @@ final class FloatingPanel: NSPanel {
         ])
 
         contentView = blur
+
+        // Use a CAShapeLayer mask on the blur view — more reliable than
+        // cornerRadius+masksToBounds against NSHostingView overdraw on macOS 13+
+        let mask = CAShapeLayer()
+        let rect = CGRect(x: 0, y: 0,
+                          width: FloatingPanel.panelWidth,
+                          height: FloatingPanel.panelHeight)
+        mask.path = CGPath(roundedRect: rect,
+                           cornerWidth: FloatingPanel.cornerRadius,
+                           cornerHeight: FloatingPanel.cornerRadius,
+                           transform: nil)
+        blur.layer?.mask = mask
     }
 
     // MARK: - NSPanel overrides
