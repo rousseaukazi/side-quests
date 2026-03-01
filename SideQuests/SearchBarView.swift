@@ -1,22 +1,16 @@
 import SwiftUI
 import AppKit
 
-private struct Particle: Identifiable {
-    let id = UUID()
-    let angle: Double    // degrees
-    let distance: CGFloat
-}
-
 struct SearchBarView: View {
 
     let onSubmit: (String) -> Void
+    var onTextChange: ((String) -> Void)? = nil
 
     @State private var text: String = ""
     @FocusState private var isFocused: Bool
     @State private var isHoveringSubmit = false
     @State private var isSubmitting = false
-    @State private var particles: [Particle] = []
-    @State private var particlesActive = false
+    @State private var showCheckmark = false
 
     var body: some View {
         HStack(spacing: 10) {
@@ -32,42 +26,39 @@ struct SearchBarView: View {
                 .foregroundColor(.primary)
                 .focused($isFocused)
                 .onSubmit(handleSubmit)
+                .onChange(of: text) { newValue in
+                    onTextChange?(newValue)
+                }
 
-            // Keep visible while submitting so particles have somewhere to live
+            // Keep visible during submit animation
             if !text.isEmpty || isSubmitting {
-                ZStack {
-                    // Particle burst — 8 dots scatter outward then fade
-                    ForEach(particles) { p in
-                        Circle()
-                            .fill(Color.accentColor)
-                            .frame(width: 5, height: 5)
-                            .offset(
-                                x: particlesActive ? CGFloat(cos(p.angle * .pi / 180)) * p.distance : 0,
-                                y: particlesActive ? CGFloat(sin(p.angle * .pi / 180)) * p.distance : 0
-                            )
-                            .opacity(particlesActive ? 0 : 0.9)
-                            .animation(.easeOut(duration: 0.4), value: particlesActive)
-                    }
-
-                    // Arrow — fades out as particles burst
-                    Button(action: handleSubmit) {
+                Button(action: handleSubmit) {
+                    ZStack {
+                        // Arrow — fades out as checkmark appears
                         Image(systemName: "arrow.up.circle.fill")
                             .font(.system(size: 26))
                             .foregroundColor(.accentColor)
-                            .scaleEffect(isSubmitting ? 1.25 : (isHoveringSubmit ? 1.12 : 1.0))
-                            .opacity(isSubmitting ? 0 : 1)
-                            .animation(.easeOut(duration: 0.12), value: isSubmitting)
+                            .scaleEffect(showCheckmark ? 0.3 : (isHoveringSubmit ? 1.12 : 1.0))
+                            .opacity(showCheckmark ? 0 : 1)
+
+                        // Checkmark — springs in
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 26))
+                            .foregroundColor(.accentColor)
+                            .scaleEffect(showCheckmark ? 1.0 : 0.3)
+                            .opacity(showCheckmark ? 1 : 0)
                     }
-                    .buttonStyle(.plain)
-                    .disabled(isSubmitting)
-                    .onHover { hovering in
-                        withAnimation(.easeInOut(duration: 0.15)) {
-                            isHoveringSubmit = hovering
-                        }
-                    }
+                    .animation(.spring(response: 0.18, dampingFraction: 0.65), value: showCheckmark)
                 }
+                .buttonStyle(.plain)
+                .disabled(isSubmitting)
                 .padding(.trailing, 12)
                 .transition(.opacity.combined(with: .scale))
+                .onHover { hovering in
+                    withAnimation(.easeInOut(duration: 0.15)) {
+                        isHoveringSubmit = hovering
+                    }
+                }
             }
         }
         .frame(height: 72)
@@ -76,15 +67,25 @@ struct SearchBarView: View {
         .onReceive(
             NotificationCenter.default.publisher(for: .sideQuestsPanelWillShow)
         ) { _ in
-            text = ""
-            particles = []
-            particlesActive = false
-            isSubmitting = false
-            isHoveringSubmit = false
+            resetState()
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
                 isFocused = true
             }
         }
+        .onReceive(
+            NotificationCenter.default.publisher(for: .sideQuestsClearText)
+        ) { _ in
+            text = ""
+            onTextChange?("")
+        }
+    }
+
+    private func resetState() {
+        text = ""
+        isSubmitting = false
+        showCheckmark = false
+        isHoveringSubmit = false
+        onTextChange?("")
     }
 
     private func handleSubmit() {
@@ -93,34 +94,21 @@ struct SearchBarView: View {
 
         isSubmitting = true
 
-        // Sound fires immediately
+        // Sound + checkmark morph (arrow → ✓ with spring)
         NSSound(named: "Pop")?.play()
+        withAnimation { showCheckmark = true }
 
-        // Spawn 8 particles evenly distributed + slight random radius variation
-        particles = (0..<8).map { i in
-            Particle(
-                angle: Double(i) * 45.0 + Double.random(in: -8...8),
-                distance: CGFloat.random(in: 18...30)
-            )
-        }
-
-        // Tiny delay so particles mount, then trigger animation
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.02) {
-            withAnimation { particlesActive = true }
-        }
-
-        // Clear text immediately (arrow stays visible via isSubmitting)
+        // Clear field immediately; button stays visible via isSubmitting
         let captured = trimmed
         text = ""
 
-        // Let animation finish (0.4s), THEN dismiss
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.42) {
+        // Hold checkmark briefly, then dismiss
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.28) {
             onSubmit(captured)
-            // Reset state after panel has dismissed
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            // Reset after panel has had time to dismiss
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
                 isSubmitting = false
-                particles = []
-                particlesActive = false
+                showCheckmark = false
             }
         }
     }

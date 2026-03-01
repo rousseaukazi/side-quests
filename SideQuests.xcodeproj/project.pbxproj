@@ -13,6 +13,7 @@
 		AA000000000000000000DD04 /* SearchBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000CC04 /* SearchBarView.swift */; };
 		AA000000000000000000DD05 /* DiscordService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000CC05 /* DiscordService.swift */; };
 		AA000000000000000000DD06 /* Config.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000CC06 /* Config.swift */; };
+		AA000000000000000000DD08 /* ThemeManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000CC08 /* ThemeManager.swift */; };
 		AA000000000000000000DD07 /* KeyboardShortcuts in Frameworks */ = {isa = PBXBuildFile; productRef = AA000000000000000000FF02 /* KeyboardShortcuts */; };
 /* End PBXBuildFile section */
 
@@ -25,6 +26,7 @@
 		AA000000000000000000CC05 /* DiscordService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiscordService.swift; sourceTree = "<group>"; };
 		AA000000000000000000CC06 /* Config.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Config.swift; sourceTree = "<group>"; };
 		AA000000000000000000CC07 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		AA000000000000000000CC08 /* ThemeManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeManager.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -65,6 +67,7 @@
 				AA000000000000000000CC05 /* DiscordService.swift */,
 				AA000000000000000000CC06 /* Config.swift */,
 				AA000000000000000000CC07 /* Info.plist */,
+				AA000000000000000000CC08 /* ThemeManager.swift */,
 			);
 			path = SideQuests;
 			sourceTree = "<group>";
@@ -149,6 +152,7 @@
 				AA000000000000000000DD04 /* SearchBarView.swift in Sources */,
 				AA000000000000000000DD05 /* DiscordService.swift in Sources */,
 				AA000000000000000000DD06 /* Config.swift in Sources */,
+				AA000000000000000000DD08 /* ThemeManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

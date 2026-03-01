@@ -10,6 +10,15 @@ final class FloatingPanel: NSPanel {
     private static let cornerRadius: CGFloat = 20
     private static let positionKey = "com.rousseau.sidequests.panelPosition"
 
+    // MARK: - State
+
+    /// Kept in sync via SearchBarView.onTextChange so event monitor can read it.
+    private var currentText: String = ""
+
+    /// Double-tap T detection
+    private var lastTKeyTime: Date?
+    private var lastTWhenEmpty: Bool = false
+
     // MARK: - Event monitors
 
     private var localEventMonitor: Any?
@@ -24,9 +33,8 @@ final class FloatingPanel: NSPanel {
                 width: FloatingPanel.panelWidth,
                 height: FloatingPanel.panelHeight
             ),
-            // NOTE: NO .fullSizeContentView — that flag causes NSHostingView to
-            // miscalculate its layout region with .borderless panels, producing
-            // a rectangular background artifact in the title-bar-height area.
+            // No .fullSizeContentView — causes NSHostingView layout offset with .borderless,
+            // producing a rectangular background artifact at the top of the panel.
             styleMask: [.nonactivatingPanel, .borderless],
             backing: .buffered,
             defer: false
@@ -39,7 +47,6 @@ final class FloatingPanel: NSPanel {
         hasShadow = true
         animationBehavior = .utilityWindow
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        // Allow dragging from anywhere on the panel background
         isMovableByWindowBackground = true
         titlebarAppearsTransparent = true
         titleVisibility = .hidden
@@ -51,16 +58,15 @@ final class FloatingPanel: NSPanel {
     // MARK: - Content
 
     private func setupContentView() {
-        let searchView = SearchBarView(
+        var searchView = SearchBarView(
             onSubmit: { [weak self] text in
                 self?.submit(text: text)
             }
         )
+        searchView.onTextChange = { [weak self] newText in
+            self?.currentText = newText
+        }
 
-        // Wrap the SwiftUI view with a material background + hard clip shape.
-        // Using SwiftUI's .background + .clipShape instead of a separate
-        // NSVisualEffectView avoids the compositing layer mismatch that was
-        // causing square corners to overdraw the rounded blur view.
         let rootView = searchView
             .background(PanelMaterial())
             .clipShape(RoundedRectangle(cornerRadius: FloatingPanel.cornerRadius, style: .continuous))
@@ -68,7 +74,6 @@ final class FloatingPanel: NSPanel {
         let host = NSHostingView(rootView: rootView)
         host.wantsLayer = true
         host.layer?.backgroundColor = NSColor.clear.cgColor
-        // Belt-and-suspenders: also clip at the CA level
         host.layer?.cornerRadius = FloatingPanel.cornerRadius
         host.layer?.cornerCurve = .continuous
         host.layer?.masksToBounds = true
@@ -109,7 +114,6 @@ final class FloatingPanel: NSPanel {
     // MARK: - Positioning
 
     private func positionPanel() {
-        // Restore saved position if it's still on a live screen
         if let saved = savedOrigin() {
             let testRect = NSRect(
                 origin: saved,
@@ -123,7 +127,6 @@ final class FloatingPanel: NSPanel {
                 return
             }
         }
-        // Default: center on main screen, ~40% from top (Spotlight position)
         let screen = NSScreen.main ?? NSScreen.screens[0]
         let sr = screen.visibleFrame
         let x = sr.midX - FloatingPanel.panelWidth / 2
@@ -166,12 +169,39 @@ final class FloatingPanel: NSPanel {
 
     private func installEventMonitors() {
         localEventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            if event.keyCode == 53 { // Escape
-                self?.hidePanel()
+            guard let self = self else { return event }
+
+            // Escape → dismiss
+            if event.keyCode == 53 {
+                self.hidePanel()
                 return nil
             }
+
+            // Double-tap T (keyCode 17) while field was empty → toggle theme
+            if event.keyCode == 17 {
+                let now = Date()
+                if self.lastTWhenEmpty,
+                   let last = self.lastTKeyTime,
+                   now.timeIntervalSince(last) < 0.35 {
+                    // Second T within window — toggle and consume
+                    ThemeManager.shared.toggle()
+                    self.lastTKeyTime = nil
+                    self.lastTWhenEmpty = false
+                    // Clear the 't' that the first press already typed
+                    NotificationCenter.default.post(name: .sideQuestsClearText, object: nil)
+                    return nil
+                }
+                self.lastTKeyTime = now
+                self.lastTWhenEmpty = self.currentText.isEmpty
+            } else {
+                // Any non-T key resets the double-tap window
+                self.lastTKeyTime = nil
+                self.lastTWhenEmpty = false
+            }
+
             return event
         }
+
         globalEventMonitor = NSEvent.addGlobalMonitorForEvents(
             matching: [.leftMouseDown, .rightMouseDown]
         ) { [weak self] _ in
@@ -182,10 +212,12 @@ final class FloatingPanel: NSPanel {
     private func removeEventMonitors() {
         if let m = localEventMonitor { NSEvent.removeMonitor(m); localEventMonitor = nil }
         if let m = globalEventMonitor { NSEvent.removeMonitor(m); globalEventMonitor = nil }
+        lastTKeyTime = nil
+        lastTWhenEmpty = false
     }
 }
 
-// MARK: - NSWindowDelegate (position persistence)
+// MARK: - NSWindowDelegate
 
 extension FloatingPanel: NSWindowDelegate {
     func windowDidMove(_ notification: Notification) {
@@ -193,10 +225,7 @@ extension FloatingPanel: NSWindowDelegate {
     }
 }
 
-// MARK: - Material background (NSViewRepresentable)
-// Using a representable instead of a separate NSVisualEffectView wrapper
-// keeps the blur layer inside the SwiftUI compositing tree where clipShape
-// can mask it correctly.
+// MARK: - Material background
 
 private struct PanelMaterial: NSViewRepresentable {
     func makeNSView(context: Context) -> NSVisualEffectView {
@@ -209,8 +238,9 @@ private struct PanelMaterial: NSViewRepresentable {
     func updateNSView(_ nsView: NSVisualEffectView, context: Context) {}
 }
 
-// MARK: - Notification name
+// MARK: - Notification names
 
 extension Notification.Name {
     static let sideQuestsPanelWillShow = Notification.Name("com.rousseau.sidequests.panelWillShow")
+    static let sideQuestsClearText    = Notification.Name("com.rousseau.sidequests.clearText")
 }

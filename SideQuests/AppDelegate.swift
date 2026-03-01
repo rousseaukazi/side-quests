@@ -2,7 +2,6 @@ import AppKit
 import KeyboardShortcuts
 
 extension KeyboardShortcuts.Name {
-    // Default: ⌘⇧Space
     static let togglePanel = Self(
         "togglePanel",
         default: .init(.s, modifiers: [.command, .shift])
@@ -15,9 +14,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private(set) var panel: FloatingPanel?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // Ensure no Dock icon (belt-and-suspenders alongside LSUIElement)
         NSApp.setActivationPolicy(.accessory)
-
+        ThemeManager.shared.applyOnLaunch()
         setupStatusItem()
         setupPanel()
         setupHotkey()
@@ -49,21 +47,48 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func showContextMenu() {
         let menu = NSMenu()
+
         menu.addItem(
             withTitle: "Show Side Quests",
             action: #selector(showPanel),
             keyEquivalent: ""
         )
+
+        menu.addItem(.separator())
+
+        // Appearance submenu
+        let appearanceItem = NSMenuItem(title: "Appearance", action: nil, keyEquivalent: "")
+        let appearanceMenu = NSMenu()
+        for option in ThemeManager.Appearance.allCases {
+            let item = NSMenuItem(
+                title: option.label,
+                action: #selector(setAppearance(_:)),
+                keyEquivalent: ""
+            )
+            item.tag = ThemeManager.Appearance.allCases.firstIndex(of: option) ?? 0
+            item.state = (ThemeManager.shared.current == option) ? .on : .off
+            item.target = self
+            appearanceMenu.addItem(item)
+        }
+        appearanceItem.submenu = appearanceMenu
+        menu.addItem(appearanceItem)
+
         menu.addItem(.separator())
         menu.addItem(
             withTitle: "Quit Side Quests",
             action: #selector(NSApplication.terminate(_:)),
             keyEquivalent: "q"
         )
-        // Attach temporarily so the button can present it
+
         statusItem?.menu = menu
         statusItem?.button?.performClick(nil)
         statusItem?.menu = nil
+    }
+
+    @objc private func setAppearance(_ sender: NSMenuItem) {
+        let options = ThemeManager.Appearance.allCases
+        guard sender.tag < options.count else { return }
+        ThemeManager.shared.set(options[sender.tag])
     }
 
     // MARK: - Panel
