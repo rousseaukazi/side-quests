@@ -17,7 +17,7 @@ struct SearchBarView: View {
             Image(systemName: "map.fill")
                 .font(.system(size: 18, weight: .medium))
                 .foregroundColor((text.isEmpty && !isSubmitting) ? .secondary : .accentColor)
-                .padding(.leading, 18)
+                .padding(.leading, 16)
                 .animation(.easeInOut(duration: 0.15), value: text.isEmpty)
 
             TextField("Start a side quest…", text: $text)
@@ -52,7 +52,7 @@ struct SearchBarView: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(isSubmitting)
-                .padding(.trailing, 12)
+                .padding(.trailing, 14)
                 .transition(.opacity.combined(with: .scale))
                 .onHover { hovering in
                     withAnimation(.easeInOut(duration: 0.15)) {
