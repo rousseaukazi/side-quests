@@ -78,6 +78,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(appearanceItem)
 
         menu.addItem(.separator())
+
+        // Configure endpoint (for sharing with others)
+        let configTitle = Config.isCustomized ? "Configure… (custom)" : "Configure…"
+        menu.addItem(
+            withTitle: configTitle,
+            action: #selector(showConfigureDialog),
+            keyEquivalent: ""
+        )
+
+        menu.addItem(.separator())
         menu.addItem(
             withTitle: "Quit Side Quests",
             action: #selector(NSApplication.terminate(_:)),
@@ -87,6 +97,53 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem?.menu = menu
         statusItem?.button?.performClick(nil)
         statusItem?.menu = nil
+    }
+
+    @objc private func showConfigureDialog() {
+        let alert = NSAlert()
+        alert.messageText = "Configure Side Quests"
+        alert.informativeText = "Set the sq-server endpoint and secret.\nLeave blank to use the built-in defaults."
+        alert.addButton(withTitle: "Save")
+        alert.addButton(withTitle: "Reset to Default")
+        alert.addButton(withTitle: "Cancel")
+
+        // Stack two labeled text fields as the accessory view
+        let container = NSView(frame: NSRect(x: 0, y: 0, width: 380, height: 76))
+
+        let endpointLabel = NSTextField(labelWithString: "Endpoint URL")
+        endpointLabel.frame = NSRect(x: 0, y: 52, width: 120, height: 17)
+        endpointLabel.font = .systemFont(ofSize: 12)
+
+        let endpointField = NSTextField(frame: NSRect(x: 0, y: 30, width: 380, height: 22))
+        endpointField.placeholderString = "http://your-server/sq"
+        endpointField.stringValue = UserDefaults.standard.string(forKey: "com.rousseau.sidequests.endpoint") ?? ""
+
+        let secretLabel = NSTextField(labelWithString: "Secret")
+        secretLabel.frame = NSRect(x: 0, y: 8, width: 120, height: 17)
+        secretLabel.font = .systemFont(ofSize: 12)
+
+        let secretField = NSSecureTextField(frame: NSRect(x: 0, y: -14, width: 380, height: 22))
+        secretField.placeholderString = "your-secret"
+        secretField.stringValue = UserDefaults.standard.string(forKey: "com.rousseau.sidequests.secret") ?? ""
+
+        container.addSubview(endpointLabel)
+        container.addSubview(endpointField)
+        container.addSubview(secretLabel)
+        container.addSubview(secretField)
+
+        alert.accessoryView = container
+        NSApp.activate(ignoringOtherApps: true)
+
+        let response = alert.runModal()
+        switch response {
+        case .alertFirstButtonReturn:  // Save
+            Config.endpoint = endpointField.stringValue
+            Config.secret   = secretField.stringValue
+        case .alertSecondButtonReturn: // Reset to Default
+            Config.resetToDefaults()
+        default:
+            break
+        }
     }
 
     @objc private func setAppearance(_ sender: NSMenuItem) {

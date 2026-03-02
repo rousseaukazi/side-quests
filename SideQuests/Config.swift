@@ -2,31 +2,49 @@ import Foundation
 
 enum Config {
 
-    static let placeholderURL = "YOUR_WEBHOOK_URL_HERE"
+    // MARK: - Hardcoded defaults (Rousseau's setup — works out of the box)
 
-    /// Discord webhook URL.
-    ///
-    /// Resolution order:
-    ///  1. Info.plist key `DISCORD_WEBHOOK_URL`  — injected at build time via
-    ///     the `DISCORD_WEBHOOK_URL` Xcode build setting (set via env var in CI).
-    ///  2. Process environment variable `DISCORD_WEBHOOK_URL` — handy for local
-    ///     `swift run` / debug sessions.
-    ///  3. The placeholder string (app logs a warning instead of crashing).
-    static let webhookURL: String = {
-        // 1. Build-time injection via Info.plist
-        if let plistValue = Bundle.main.infoDictionary?["DISCORD_WEBHOOK_URL"] as? String,
-           !plistValue.isEmpty,
-           plistValue != "$(DISCORD_WEBHOOK_URL)" {
-            return plistValue
+    private static let defaultEndpoint = "http://3.145.73.180:4141/sq"
+    private static let defaultSecret   = "roux-sq-secret"
+
+    // MARK: - UserDefaults keys
+
+    private static let endpointKey = "com.rousseau.sidequests.endpoint"
+    private static let secretKey   = "com.rousseau.sidequests.secret"
+
+    // MARK: - Accessors (UserDefaults → hardcoded fallback)
+
+    static var endpoint: String {
+        get {
+            let saved = UserDefaults.standard.string(forKey: endpointKey) ?? ""
+            return saved.isEmpty ? defaultEndpoint : saved
         }
-
-        // 2. Runtime environment variable (local dev / testing)
-        if let envValue = ProcessInfo.processInfo.environment["DISCORD_WEBHOOK_URL"],
-           !envValue.isEmpty {
-            return envValue
+        set {
+            UserDefaults.standard.set(newValue.isEmpty ? defaultEndpoint : newValue,
+                                      forKey: endpointKey)
         }
+    }
 
-        // 3. Placeholder — will log a warning when first used
-        return placeholderURL
-    }()
+    static var secret: String {
+        get {
+            let saved = UserDefaults.standard.string(forKey: secretKey) ?? ""
+            return saved.isEmpty ? defaultSecret : saved
+        }
+        set {
+            UserDefaults.standard.set(newValue.isEmpty ? defaultSecret : newValue,
+                                      forKey: secretKey)
+        }
+    }
+
+    /// True if the user has saved a custom config (useful for showing "configured" state in menu).
+    static var isCustomized: Bool {
+        let ep = UserDefaults.standard.string(forKey: endpointKey) ?? ""
+        return !ep.isEmpty && ep != defaultEndpoint
+    }
+
+    /// Wipe saved config and revert to defaults.
+    static func resetToDefaults() {
+        UserDefaults.standard.removeObject(forKey: endpointKey)
+        UserDefaults.standard.removeObject(forKey: secretKey)
+    }
 }

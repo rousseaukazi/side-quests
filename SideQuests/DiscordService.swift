@@ -6,11 +6,14 @@ actor DiscordService {
     static let shared = DiscordService()
     private init() {}
 
-    private let endpoint = "http://3.145.73.180:4141/sq"
-    private let secret   = "roux-sq-secret"
-
     func post(message: String) async {
-        guard let url = URL(string: endpoint) else { return }
+        let endpoint = Config.endpoint
+        let secret   = Config.secret
+
+        guard let url = URL(string: endpoint) else {
+            print("[SideQuests] ❌ Invalid endpoint URL: \(endpoint)")
+            return
+        }
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
