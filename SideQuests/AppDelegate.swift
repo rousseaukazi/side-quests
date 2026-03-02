@@ -27,10 +27,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         guard let button = statusItem?.button else { return }
 
-        button.image = NSImage(
-            systemSymbolName: "map.fill",
-            accessibilityDescription: "Side Quests"
-        )
+        // Use custom asset catalog icon; fall back to SF Symbol if asset not found
+        if let customImage = NSImage(named: "MenuBarIcon") {
+            customImage.isTemplate = true  // lets macOS adapt for dark/light menu bar
+            button.image = customImage
+        } else {
+            button.image = NSImage(systemSymbolName: "map.fill",
+                                   accessibilityDescription: "Side Quests")
+        }
         button.sendAction(on: [.leftMouseUp, .rightMouseUp])
         button.action = #selector(statusItemClicked(_:))
         button.target = self

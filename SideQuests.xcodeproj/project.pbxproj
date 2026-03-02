@@ -13,6 +13,7 @@
 		AA000000000000000000DD04 /* SearchBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000CC04 /* SearchBarView.swift */; };
 		AA000000000000000000DD05 /* DiscordService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000CC05 /* DiscordService.swift */; };
 		AA000000000000000000DD06 /* Config.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000CC06 /* Config.swift */; };
+		AA000000000000000000DD09 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000CC09 /* Assets.xcassets */; };
 		AA000000000000000000DD08 /* ThemeManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000CC08 /* ThemeManager.swift */; };
 		AA000000000000000000DD07 /* KeyboardShortcuts in Frameworks */ = {isa = PBXBuildFile; productRef = AA000000000000000000FF02 /* KeyboardShortcuts */; };
 /* End PBXBuildFile section */
@@ -27,6 +28,7 @@
 		AA000000000000000000CC06 /* Config.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Config.swift; sourceTree = "<group>"; };
 		AA000000000000000000CC07 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		AA000000000000000000CC08 /* ThemeManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeManager.swift; sourceTree = "<group>"; };
+		AA000000000000000000CC09 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -68,6 +70,7 @@
 				AA000000000000000000CC06 /* Config.swift */,
 				AA000000000000000000CC07 /* Info.plist */,
 				AA000000000000000000CC08 /* ThemeManager.swift */,
+				AA000000000000000000CC09 /* Assets.xcassets */,
 			);
 			path = SideQuests;
 			sourceTree = "<group>";
@@ -136,6 +139,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AA000000000000000000DD09 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -274,6 +278,7 @@
 		AA000000000000000000EE05 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
@@ -298,6 +303,7 @@
 		AA000000000000000000EE06 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
